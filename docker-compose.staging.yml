@@ -1,0 +1,273 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bitcoin_custody_staging}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/backup-db.sh:/usr/local/bin/backup-db.sh:ro
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-bitcoin_custody_staging}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-staging_redis_pass} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+      args:
+        BUILD_ENV: staging
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=staging
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-bitcoin_custody_staging}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-staging_redis_pass}@redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - SOROBAN_RPC_URL=${SOROBAN_RPC_URL:-https://soroban-testnet.stellar.org}
+      - SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
+      - FRONTEND_URL=${FRONTEND_URL:-https://staging.bitcoin-custody.com}
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY}
+    ports:
+      - "8080:8080"
+      - "9090:9090"  # Metrics port
+    volumes:
+      - ./backend:/app
+      - ./backend/config:/app/config:ro
+      - ./logs:/var/log/bitcoin-custody-staging
+      - ./backups:/var/backups/bitcoin-custody-staging
+    networks:
+      - backend-network
+      - frontend-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    security_opt:
+      - no-new-privileges:true
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      args:
+        BUILD_ENV: staging
+        VITE_API_URL: ${FRONTEND_URL:-https://staging.bitcoin-custody.com}/api
+        VITE_WS_URL: ${FRONTEND_URL:-wss://staging.bitcoin-custody.com}/ws
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=staging
+      - VITE_ENABLE_DEBUG_MODE=true
+    ports:
+      - "3000:3000"
+      - "443:443"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - ./frontend/nginx.staging.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - frontend-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  soroban-rpc:
+    image: stellar/quickstart:soroban-dev
+    restart: unless-stopped
+    command: --testnet --enable-soroban-rpc
+    ports:
+      - "8000:8000"
+    volumes:
+      - soroban_data:/opt/stellar
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+
+  monitoring:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=72h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.staging.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring-network
+      - backend-network
+    security_opt:
+      - no-new-privileges:true
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-staging_admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-staging-grafana.bitcoin-custody.com}
+      - GF_SERVER_ROOT_URL=https://${GRAFANA_DOMAIN:-staging-grafana.bitcoin-custody.com}
+      - GF_SECURITY_COOKIE_SECURE=false  # Allow HTTP in staging
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - monitoring-network
+    depends_on:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+  backup:
+    image: postgres:15-alpine
+    restart: "no"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-bitcoin_custody_staging}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - BACKUP_ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup-staging.sh:/usr/local/bin/backup.sh:ro
+    networks:
+      - backend-network
+    depends_on:
+      - postgres
+    profiles:
+      - backup
+    security_opt:
+      - no-new-privileges:true
+
+  # Development tools for staging
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@staging.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-staging_admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - backend-network
+    depends_on:
+      - postgres
+    security_opt:
+      - no-new-privileges:true
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-staging_redis_pass}
+    ports:
+      - "8081:8081"
+    networks:
+      - backend-network
+    depends_on:
+      - redis
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  backend-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
+  frontend-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.0.0/16
+  monitoring-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.32.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  soroban_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# Resource limits for staging (more relaxed than production)
+x-resource-limits: &resource-limits
+  deploy:
+    resources:
+      limits:
+        memory: 1G
+        cpus: '1.0'
+      reservations:
+        memory: 512M
+        cpus: '0.5'

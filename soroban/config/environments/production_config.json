@@ -1,0 +1,435 @@
+{
+  "environments": {
+    "testnet": {
+      "name": "testnet",
+      "network": "testnet",
+      "rpc_url": "https://soroban-testnet.stellar.org",
+      "contracts": {
+        "kyc_registry": {
+          "address": "${KYC_REGISTRY_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "registry_enabled": true,
+            "max_tier": 4
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}"],
+            "compliance_officer": ["${COMPLIANCE_OFFICER_ADDRESS}"]
+          },
+          "limits": {
+            "max_registrations_per_day": 1000,
+            "max_tier_updates_per_day": 100
+          },
+          "enabled": true
+        },
+        "reserve_manager": {
+          "address": "${RESERVE_MANAGER_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "min_reserve_ratio": 10000,
+            "emergency_threshold": 9000
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}"],
+            "operator": ["${OPERATOR_ADDRESS}"]
+          },
+          "limits": {
+            "max_deposit_amount": 1000000000,
+            "max_withdrawal_amount": 1000000000
+          },
+          "enabled": true
+        },
+        "fungible_token": {
+          "address": "${FUNGIBLE_TOKEN_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "name": "Test Fungible Token",
+            "symbol": "TFT",
+            "decimals": 7
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}"],
+            "minter": ["${INTEGRATION_ROUTER_ADDRESS}"]
+          },
+          "limits": {
+            "max_supply": 1000000000000000,
+            "max_mint_per_tx": 1000000000
+          },
+          "enabled": true
+        },
+        "istsi_token": {
+          "address": "${ISTSI_TOKEN_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "kyc_registry": "${KYC_REGISTRY_ADDRESS}",
+            "name": "iSTSi Token",
+            "symbol": "iSTSi",
+            "decimals": 7
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}"],
+            "minter": ["${INTEGRATION_ROUTER_ADDRESS}"],
+            "burner": ["${INTEGRATION_ROUTER_ADDRESS}"]
+          },
+          "limits": {
+            "max_supply": 2100000000000000,
+            "max_mint_per_tx": 1000000000,
+            "max_burn_per_tx": 1000000000
+          },
+          "enabled": true
+        },
+        "integration_router": {
+          "address": "${INTEGRATION_ROUTER_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "paused": false,
+            "emergency_mode": false
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}"],
+            "system_admin": ["${SYSTEM_ADMIN_ADDRESS}"],
+            "compliance_officer": ["${COMPLIANCE_OFFICER_ADDRESS}"],
+            "operator": ["${OPERATOR_ADDRESS}"]
+          },
+          "limits": {
+            "max_batch_size": 100,
+            "max_operation_timeout": 300
+          },
+          "enabled": true
+        }
+      },
+      "system_parameters": {
+        "max_transaction_timeout": 300,
+        "default_gas_limit": 1000000,
+        "emergency_pause_enabled": true,
+        "maintenance_mode": false,
+        "rate_limiting": {
+          "enabled": true,
+          "requests_per_minute": 100,
+          "burst_limit": 200,
+          "whitelist": ["${ADMIN_ADDRESS}", "${OPERATOR_ADDRESS}"]
+        },
+        "reconciliation_frequency": 3600,
+        "proof_generation_frequency": 86400
+      },
+      "security_settings": {
+        "multi_sig_threshold": 2,
+        "admin_addresses": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+        "emergency_contacts": ["admin@istsi.com", "security@istsi.com"],
+        "access_control_enabled": true,
+        "audit_logging_enabled": true,
+        "encryption_enabled": true
+      },
+      "monitoring_config": {
+        "health_check_interval": 60,
+        "alert_thresholds": {
+          "error_rate": 5,
+          "response_time": 5000,
+          "reserve_ratio": 9500,
+          "failed_transactions": 10
+        },
+        "notification_endpoints": ["https://alerts.istsi.com/webhook"],
+        "metrics_retention_days": 30,
+        "log_level": "INFO"
+      },
+      "created_at": 1694649600,
+      "last_updated": 1694649600
+    },
+    "mainnet": {
+      "name": "mainnet",
+      "network": "mainnet",
+      "rpc_url": "https://soroban-mainnet.stellar.org",
+      "contracts": {
+        "kyc_registry": {
+          "address": "${KYC_REGISTRY_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "registry_enabled": true,
+            "max_tier": 4
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+            "compliance_officer": ["${COMPLIANCE_OFFICER_ADDRESS}"]
+          },
+          "limits": {
+            "max_registrations_per_day": 10000,
+            "max_tier_updates_per_day": 1000
+          },
+          "enabled": true
+        },
+        "reserve_manager": {
+          "address": "${RESERVE_MANAGER_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "min_reserve_ratio": 10000,
+            "emergency_threshold": 9500
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+            "operator": ["${OPERATOR_ADDRESS}"]
+          },
+          "limits": {
+            "max_deposit_amount": 10000000000,
+            "max_withdrawal_amount": 10000000000
+          },
+          "enabled": true
+        },
+        "fungible_token": {
+          "address": "${FUNGIBLE_TOKEN_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "name": "Fungible Token",
+            "symbol": "FT",
+            "decimals": 7
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+            "minter": ["${INTEGRATION_ROUTER_ADDRESS}"]
+          },
+          "limits": {
+            "max_supply": 10000000000000000,
+            "max_mint_per_tx": 10000000000
+          },
+          "enabled": true
+        },
+        "istsi_token": {
+          "address": "${ISTSI_TOKEN_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "kyc_registry": "${KYC_REGISTRY_ADDRESS}",
+            "name": "iSTSi Token",
+            "symbol": "iSTSi",
+            "decimals": 7
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+            "minter": ["${INTEGRATION_ROUTER_ADDRESS}"],
+            "burner": ["${INTEGRATION_ROUTER_ADDRESS}"]
+          },
+          "limits": {
+            "max_supply": 2100000000000000,
+            "max_mint_per_tx": 10000000000,
+            "max_burn_per_tx": 10000000000
+          },
+          "enabled": true
+        },
+        "integration_router": {
+          "address": "${INTEGRATION_ROUTER_ADDRESS}",
+          "version": "1.0.0",
+          "parameters": {
+            "admin": "${ADMIN_ADDRESS}",
+            "paused": false,
+            "emergency_mode": false
+          },
+          "roles": {
+            "admin": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}"],
+            "system_admin": ["${SYSTEM_ADMIN_ADDRESS}"],
+            "compliance_officer": ["${COMPLIANCE_OFFICER_ADDRESS}"],
+            "operator": ["${OPERATOR_ADDRESS}"]
+          },
+          "limits": {
+            "max_batch_size": 1000,
+            "max_operation_timeout": 600
+          },
+          "enabled": true
+        }
+      },
+      "system_parameters": {
+        "max_transaction_timeout": 600,
+        "default_gas_limit": 2000000,
+        "emergency_pause_enabled": true,
+        "maintenance_mode": false,
+        "rate_limiting": {
+          "enabled": true,
+          "requests_per_minute": 1000,
+          "burst_limit": 2000,
+          "whitelist": ["${ADMIN_ADDRESS}", "${OPERATOR_ADDRESS}"]
+        },
+        "reconciliation_frequency": 1800,
+        "proof_generation_frequency": 43200
+      },
+      "security_settings": {
+        "multi_sig_threshold": 3,
+        "admin_addresses": ["${ADMIN_ADDRESS}", "${BACKUP_ADMIN_ADDRESS}", "${EMERGENCY_ADMIN_ADDRESS}"],
+        "emergency_contacts": ["admin@istsi.com", "security@istsi.com", "cto@istsi.com"],
+        "access_control_enabled": true,
+        "audit_logging_enabled": true,
+        "encryption_enabled": true
+      },
+      "monitoring_config": {
+        "health_check_interval": 30,
+        "alert_thresholds": {
+          "error_rate": 1,
+          "response_time": 2000,
+          "reserve_ratio": 9800,
+          "failed_transactions": 5
+        },
+        "notification_endpoints": [
+          "https://alerts.istsi.com/webhook",
+          "https://pagerduty.istsi.com/webhook"
+        ],
+        "metrics_retention_days": 90,
+        "log_level": "WARN"
+      },
+      "created_at": 1694649600,
+      "last_updated": 1694649600
+    }
+  },
+  "templates": {
+    "basic_environment": {
+      "name": "basic_environment",
+      "description": "Basic environment template with standard configuration",
+      "base_config": {
+        "name": "${ENVIRONMENT_NAME}",
+        "network": "${NETWORK}",
+        "rpc_url": "${RPC_URL}",
+        "contracts": {
+          "kyc_registry": {
+            "address": "${KYC_REGISTRY_ADDRESS}",
+            "version": "1.0.0",
+            "parameters": {
+              "admin": "${ADMIN_ADDRESS}",
+              "registry_enabled": true,
+              "max_tier": 4
+            },
+            "roles": {
+              "admin": ["${ADMIN_ADDRESS}"]
+            },
+            "limits": {
+              "max_registrations_per_day": 1000
+            },
+            "enabled": true
+          }
+        },
+        "system_parameters": {
+          "max_transaction_timeout": 300,
+          "default_gas_limit": 1000000,
+          "emergency_pause_enabled": true,
+          "maintenance_mode": false,
+          "rate_limiting": {
+            "enabled": true,
+            "requests_per_minute": 100,
+            "burst_limit": 200,
+            "whitelist": []
+          },
+          "reconciliation_frequency": 3600,
+          "proof_generation_frequency": 86400
+        },
+        "security_settings": {
+          "multi_sig_threshold": 1,
+          "admin_addresses": ["${ADMIN_ADDRESS}"],
+          "emergency_contacts": ["${EMERGENCY_CONTACT}"],
+          "access_control_enabled": true,
+          "audit_logging_enabled": true,
+          "encryption_enabled": false
+        },
+        "monitoring_config": {
+          "health_check_interval": 60,
+          "alert_thresholds": {
+            "error_rate": 10,
+            "response_time": 10000,
+            "reserve_ratio": 9000,
+            "failed_transactions": 20
+          },
+          "notification_endpoints": [],
+          "metrics_retention_days": 7,
+          "log_level": "DEBUG"
+        },
+        "created_at": 0,
+        "last_updated": 0
+      },
+      "variable_substitutions": {},
+      "required_variables": [
+        "ENVIRONMENT_NAME",
+        "NETWORK",
+        "RPC_URL",
+        "ADMIN_ADDRESS",
+        "KYC_REGISTRY_ADDRESS",
+        "EMERGENCY_CONTACT"
+      ]
+    }
+  },
+  "validation_rules": [
+    {
+      "name": "admin_address_format",
+      "rule_type": "AddressFormat",
+      "target": "kyc_registry",
+      "condition": "stellar_address",
+      "error_message": "Admin address must be a valid Stellar address",
+      "severity": "Error"
+    },
+    {
+      "name": "transaction_timeout_range",
+      "rule_type": "NumericRange",
+      "target": "max_transaction_timeout",
+      "condition": "min:60,max:3600",
+      "error_message": "Transaction timeout must be between 60 and 3600 seconds",
+      "severity": "Error"
+    },
+    {
+      "name": "gas_limit_range",
+      "rule_type": "NumericRange",
+      "target": "default_gas_limit",
+      "condition": "min:100000,max:10000000",
+      "error_message": "Gas limit must be between 100,000 and 10,000,000",
+      "severity": "Warning"
+    },
+    {
+      "name": "emergency_pause_required",
+      "rule_type": "BooleanValue",
+      "target": "emergency_pause_enabled",
+      "condition": "true",
+      "error_message": "Emergency pause must be enabled in production",
+      "severity": "Error"
+    },
+    {
+      "name": "maintenance_mode_check",
+      "rule_type": "BooleanValue",
+      "target": "maintenance_mode",
+      "condition": "false",
+      "error_message": "Maintenance mode should be disabled for normal operation",
+      "severity": "Warning"
+    },
+    {
+      "name": "admin_addresses_count",
+      "rule_type": "ArrayLength",
+      "target": "admin_addresses",
+      "condition": "min:1,max:5",
+      "error_message": "Must have between 1 and 5 admin addresses",
+      "severity": "Error"
+    },
+    {
+      "name": "emergency_contacts_count",
+      "rule_type": "ArrayLength",
+      "target": "emergency_contacts",
+      "condition": "min:1,max:10",
+      "error_message": "Must have between 1 and 10 emergency contacts",
+      "severity": "Warning"
+    },
+    {
+      "name": "istsi_kyc_reference",
+      "rule_type": "CrossReference",
+      "target": "istsi_token_kyc_reference",
+      "condition": "kyc_registry_exists",
+      "error_message": "iSTSi token must reference a valid KYC registry",
+      "severity": "Error"
+    }
+  ],
+  "backup_settings": {
+    "enabled": true,
+    "backup_directory": "./config/backups",
+    "retention_days": 30,
+    "compression_enabled": true,
+    "encryption_enabled": false,
+    "remote_backup_url": null
+  }
+}

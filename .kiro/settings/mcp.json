@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "OpenZeppelinContracts": {
+      "command": "npx",
+      "args": ["-y", "@openzeppelin/contracts-mcp"]
+    }
+  }
+}

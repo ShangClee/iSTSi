@@ -1,0 +1,159 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: bitcoin-custody-postgres
+    environment:
+      POSTGRES_DB: bitcoin_custody_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bitcoin_custody_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - bitcoin-custody-network
+
+  # Soroban RPC Server for local blockchain development
+  soroban-rpc:
+    image: stellar/quickstart:soroban-dev
+    container_name: bitcoin-custody-soroban
+    ports:
+      - "8001:8000"
+      - "11626:11626"
+    command: --local --enable-soroban-rpc --enable-soroban-diagnostic-events
+    environment:
+      - SOROBAN_RPC_LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - bitcoin-custody-network
+
+
+
+  # Loco.rs Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+      cache_from:
+        - bitcoin-custody-backend:cache
+    container_name: bitcoin-custody-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bitcoin_custody_dev
+      - RUST_LOG=debug
+      - SOROBAN_RPC_URL=http://soroban-rpc:8000
+      - SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017
+      - JWT_SECRET=development-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:3000,http://frontend:3000
+      - CARGO_INCREMENTAL=1
+      - CARGO_TARGET_DIR=/app/target
+    depends_on:
+      postgres:
+        condition: service_healthy
+      soroban-rpc:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_target:/app/target
+      - backend_cargo_registry:/usr/local/cargo/registry
+      - backend_cargo_git:/usr/local/cargo/git
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/_health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - bitcoin-custody-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    container_name: bitcoin-custody-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - bitcoin-custody-network
+
+  # React Frontend Development Server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+      cache_from:
+        - bitcoin-custody-frontend:cache
+    container_name: bitcoin-custody-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+      - VITE_WS_URL=ws://localhost:8080
+      - VITE_SOROBAN_RPC_URL=http://localhost:8001
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_CACHE_DIR=/app/node_modules/.vite
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+      - frontend_vite_cache:/app/node_modules/.vite
+    working_dir: /app
+    command: npm run dev -- --host 0.0.0.0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - bitcoin-custody-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_target:
+    driver: local
+  backend_cargo_registry:
+    driver: local
+  backend_cargo_git:
+    driver: local
+  frontend_node_modules:
+    driver: local
+  frontend_vite_cache:
+    driver: local
+
+networks:
+  bitcoin-custody-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

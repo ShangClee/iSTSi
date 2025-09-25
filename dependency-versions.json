@@ -1,0 +1,92 @@
+{
+  "description": "Shared dependency version management for Bitcoin Custody system",
+  "lastUpdated": "2024-01-15",
+  "frontend": {
+    "react": {
+      "version": "^18.3.1",
+      "reason": "Latest stable React version with concurrent features",
+      "security": "high",
+      "updateFrequency": "minor"
+    },
+    "typescript": {
+      "version": "^5.3.3",
+      "reason": "Latest TypeScript with improved type inference",
+      "security": "medium",
+      "updateFrequency": "minor"
+    },
+    "vite": {
+      "version": "^6.3.5",
+      "reason": "Modern build tool with fast HMR and optimizations",
+      "security": "medium",
+      "updateFrequency": "minor"
+    },
+    "axios": {
+      "version": "^1.6.2",
+      "reason": "HTTP client with security fixes",
+      "security": "high",
+      "updateFrequency": "patch"
+    }
+  },
+  "backend": {
+    "loco-rs": {
+      "version": "0.2",
+      "reason": "Stable framework version with required features",
+      "security": "high",
+      "updateFrequency": "minor"
+    },
+    "sea-orm": {
+      "version": "0.12",
+      "reason": "Compatible with loco-rs and PostgreSQL features",
+      "security": "high",
+      "updateFrequency": "minor"
+    },
+    "tokio": {
+      "version": "1.0",
+      "reason": "Stable async runtime",
+      "security": "high",
+      "updateFrequency": "minor"
+    },
+    "soroban-sdk": {
+      "version": "22.0.8",
+      "reason": "Latest stable Soroban SDK",
+      "security": "critical",
+      "updateFrequency": "patch"
+    }
+  },
+  "soroban": {
+    "soroban-sdk": {
+      "version": "22.0.8",
+      "reason": "Pinned for contract compatibility",
+      "security": "critical",
+      "updateFrequency": "manual"
+    },
+    "stellar-tokens": {
+      "version": "=0.4.1",
+      "reason": "Exact version for Stellar ecosystem compatibility",
+      "security": "high",
+      "updateFrequency": "manual"
+    }
+  },
+  "security": {
+    "highRiskPackages": [
+      "axios",
+      "jsonwebtoken",
+      "bcrypt",
+      "soroban-sdk",
+      "stellar-strkey"
+    ],
+    "auditFrequency": "weekly",
+    "updatePolicy": {
+      "critical": "immediate",
+      "high": "within 24h",
+      "medium": "within 1 week",
+      "low": "monthly"
+    }
+  },
+  "compatibility": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0",
+    "rust": ">=1.70.0",
+    "soroban-cli": "22.0.8"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "project": {
+    "name": "bitcoin-custody-fullstack",
+    "version": "1.0.0",
+    "components": {
+      "frontend": {
+        "version": "1.0.0",
+        "path": "./frontend",
+        "type": "npm",
+        "dependencies": [
+          "backend"
+        ]
+      },
+      "backend": {
+        "version": "1.0.0",
+        "path": "./backend",
+        "type": "cargo",
+        "dependencies": [
+          "soroban"
+        ]
+      },
+      "soroban": {
+        "version": "1.0.0",
+        "path": "./soroban",
+        "type": "cargo",
+        "dependencies": []
+      }
+    }
+  },
+  "compatibility_matrix": {
+    "1.0.x": {
+      "frontend": "1.0.x",
+      "backend": "1.0.x",
+      "soroban": "1.0.x"
+    }
+  },
+  "versioning_rules": {
+    "major": "Breaking changes that require migration",
+    "minor": "New features that are backward compatible",
+    "patch": "Bug fixes and small improvements"
+  }
+}

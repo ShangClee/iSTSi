@@ -1,0 +1,126 @@
+# Docker Compose override for development-specific configurations
+# This file extends docker-compose.yml with development-only settings
+
+version: '3.8'
+
+services:
+  # Development-specific backend configuration
+  backend:
+    environment:
+      # Enable hot reloading and debug mode
+      - RUST_BACKTRACE=1
+      - RUST_LOG=debug,sqlx=info
+      - CARGO_INCREMENTAL=1
+      # Service discovery
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - SOROBAN_RPC_HOST=soroban-rpc
+    volumes:
+      # Mount source for hot reloading
+      - ./backend/src:/app/src:ro
+      - ./backend/config:/app/config:ro
+      - ./backend/migration:/app/migration:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`api.localhost`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8080"
+
+  # Development-specific frontend configuration
+  frontend:
+    environment:
+      # Enable hot reloading
+      - FAST_REFRESH=true
+      - GENERATE_SOURCEMAP=true
+      # Service discovery
+      - VITE_API_HOST=backend
+      - VITE_SOROBAN_HOST=soroban-rpc
+    volumes:
+      # Mount source for hot reloading
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+      - ./frontend/index.html:/app/index.html:ro
+      - ./frontend/vite.config.ts:/app/vite.config.ts:ro
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+
+  # Development database with additional tools
+  postgres:
+    environment:
+      # Enable additional logging for development
+      - POSTGRES_LOG_STATEMENT=all
+      - POSTGRES_LOG_MIN_DURATION_STATEMENT=0
+    volumes:
+      # Mount additional development scripts
+      - ./backend/scripts:/docker-entrypoint-initdb.d:ro
+    labels:
+      - "traefik.enable=false"
+
+  # Development Redis with persistence disabled for faster startup
+  redis:
+    command: redis-server --save "" --appendonly no --maxmemory 256mb
+    labels:
+      - "traefik.enable=false"
+
+  # Soroban with development-friendly settings
+  soroban-rpc:
+    environment:
+      - SOROBAN_RPC_LOG_LEVEL=debug
+      - STELLAR_CORE_LOG_LEVEL=info
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.soroban.rule=Host(`soroban.localhost`)"
+      - "traefik.http.services.soroban.loadbalancer.server.port=8000"
+
+  # Optional: Traefik reverse proxy for easier service access
+  traefik:
+    image: traefik:v3.0
+    container_name: bitcoin-custody-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8090:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - bitcoin-custody-network
+    profiles:
+      - traefik
+
+  # Optional: Database administration tool
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bitcoin-custody-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@localhost
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - bitcoin-custody-network
+    profiles:
+      - tools
+
+  # Optional: Redis administration tool
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: bitcoin-custody-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - bitcoin-custody-network
+    profiles:
+      - tools

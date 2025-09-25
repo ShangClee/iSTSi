@@ -1,0 +1,95 @@
+# Docker ignore file for Bitcoin Custody project
+# Excludes unnecessary files from Docker build context
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+DEVELOPMENT.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# Dependency directories
+node_modules/
+target/
+.cargo/
+
+# Build outputs
+dist/
+build/
+*.wasm
+
+# Environment files (keep examples)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+!.env.example
+!.env.development
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Scripts (not needed in containers)
+scripts/
+
+# Backup files
+backup-*/
+*.backup
+
+# Test files
+test_snapshots/
+*.test.js
+*.spec.js
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Package manager files
+package-lock.json
+yarn.lock
+Cargo.lock
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache directories
+.cache/
+.parcel-cache/
+.next/
+.nuxt/

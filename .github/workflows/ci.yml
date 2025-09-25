@@ -1,0 +1,351 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  NODE_VERSION: '18'
+  RUST_VERSION: '1.75'
+
+jobs:
+  # Frontend CI
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Cache Vite build cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          frontend/node_modules/.vite
+          frontend/dist
+        key: vite-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/src/**/*') }}
+        restore-keys: |
+          vite-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}-
+          vite-${{ runner.os }}-
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Type check
+      run: npm run type-check
+    
+    - name: Lint
+      run: npm run lint
+    
+    - name: Run tests
+      run: npm run test -- --run --coverage
+    
+    - name: Build with performance monitoring
+      run: |
+        npm run build:performance
+        npm run build
+    
+    - name: Analyze bundle size
+      run: npm run build:analyze
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./frontend/coverage/lcov.info
+        flags: frontend
+        name: frontend-coverage
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: |
+          frontend/dist/
+          frontend/build-performance-report.json
+          frontend/dist/bundle-analysis.html
+        retention-days: 7
+
+  # Backend CI
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: bitcoin_custody_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ env.RUST_VERSION }}
+        components: rustfmt, clippy
+    
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: backend -> target
+        cache-on-failure: true
+        cache-all-crates: true
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+        key: backend-${{ runner.os }}-${{ hashFiles('backend/Cargo.lock') }}
+        restore-keys: |
+          backend-${{ runner.os }}-
+    
+    - name: Check formatting
+      run: cargo fmt -- --check
+    
+    - name: Run Clippy
+      run: cargo clippy -- -D warnings
+    
+    - name: Run tests
+      run: cargo test
+      env:
+        DATABASE_URL: postgres://postgres:password@localhost:5432/bitcoin_custody_test
+        LOCO_ENV: test
+    
+    - name: Build release with performance monitoring
+      run: |
+        ./scripts/build-performance.sh release
+        cargo build --release
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-build
+        path: |
+          backend/target/release/bitcoin-custody-backend
+          backend/build-performance-report.json
+        retention-days: 7
+
+  # Soroban Contracts CI
+  soroban-ci:
+    name: Soroban Contracts CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./soroban
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ env.RUST_VERSION }}
+        components: rustfmt, clippy
+        targets: wasm32-unknown-unknown
+    
+    - name: Install Soroban CLI
+      run: |
+        cargo install --locked soroban-cli --features opt
+    
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: soroban -> target
+        cache-on-failure: true
+        cache-all-crates: true
+        save-if: ${{ github.ref == 'refs/heads/main' }}
+        key: soroban-${{ runner.os }}-${{ hashFiles('soroban/Cargo.lock') }}
+        restore-keys: |
+          soroban-${{ runner.os }}-
+    
+    - name: Check formatting
+      run: cargo fmt -- --check
+    
+    - name: Run Clippy
+      run: cargo clippy -- -D warnings
+    
+    - name: Run tests
+      run: cargo test
+    
+    - name: Build contracts with performance monitoring
+      run: |
+        ./scripts/build-performance.sh release
+        cargo build --target wasm32-unknown-unknown --release
+    
+    - name: Optimize contracts
+      run: |
+        mkdir -p optimized-contracts
+        for wasm in target/wasm32-unknown-unknown/release/*.wasm; do
+          if [ -f "$wasm" ]; then
+            contract_name=$(basename "$wasm" .wasm)
+            soroban contract optimize --wasm "$wasm" --out "optimized-contracts/${contract_name}.wasm"
+          fi
+        done
+    
+    - name: Upload contract artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: soroban-contracts
+        path: |
+          soroban/optimized-contracts/
+          soroban/contract-build-performance.json
+        retention-days: 7
+
+  # Integration Tests
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [frontend-ci, backend-ci, soroban-ci]
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: postgres
+          POSTGRES_DB: bitcoin_custody_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ env.RUST_VERSION }}
+    
+    - name: Install Soroban CLI
+      run: |
+        cargo install --locked soroban-cli --features opt
+    
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+    
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+    
+    - name: Setup test environment
+      run: |
+        # Install frontend dependencies
+        cd frontend && npm ci && cd ..
+        
+        # Start Soroban local network
+        docker run -d --name soroban-rpc -p 8000:8000 stellar/quickstart:soroban-dev --local --enable-soroban-rpc
+        
+        # Wait for services
+        sleep 30
+    
+    - name: Run integration tests
+      run: ./scripts/test.sh integration
+      env:
+        DATABASE_URL: postgres://postgres:password@localhost:5432/bitcoin_custody_test
+        LOCO_ENV: test
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: integration-test-results
+        path: test-results/
+        retention-days: 7
+
+  # Security Scan
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Audit Rust dependencies
+      run: |
+        cargo install cargo-audit
+        cd backend && cargo audit
+        cd ../soroban && cargo audit
+    
+    - name: Audit Node.js dependencies
+      run: |
+        cd frontend && npm audit --audit-level moderate
+
+  # Build Status Check
+  build-status:
+    name: Build Status
+    runs-on: ubuntu-latest
+    needs: [frontend-ci, backend-ci, soroban-ci, integration-tests, security-scan]
+    if: always()
+    
+    steps:
+    - name: Check build status
+      run: |
+        if [[ "${{ needs.frontend-ci.result }}" == "success" && 
+              "${{ needs.backend-ci.result }}" == "success" && 
+              "${{ needs.soroban-ci.result }}" == "success" && 
+              "${{ needs.integration-tests.result }}" == "success" && 
+              "${{ needs.security-scan.result }}" == "success" ]]; then
+          echo "✅ All CI checks passed!"
+          exit 0
+        else
+          echo "❌ Some CI checks failed:"
+          echo "Frontend: ${{ needs.frontend-ci.result }}"
+          echo "Backend: ${{ needs.backend-ci.result }}"
+          echo "Soroban: ${{ needs.soroban-ci.result }}"
+          echo "Integration: ${{ needs.integration-tests.result }}"
+          echo "Security: ${{ needs.security-scan.result }}"
+          exit 1
+        fi

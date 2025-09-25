@@ -1,0 +1,235 @@
+{
+  "version": "1.0.0",
+  "description": "Build optimization configuration for Bitcoin Custody System",
+  "components": {
+    "frontend": {
+      "build_profiles": {
+        "development": {
+          "optimization_level": "fast",
+          "source_maps": true,
+          "minification": false,
+          "tree_shaking": false,
+          "code_splitting": false,
+          "cache_strategy": "aggressive",
+          "bundle_analysis": false
+        },
+        "staging": {
+          "optimization_level": "balanced",
+          "source_maps": "hidden",
+          "minification": true,
+          "tree_shaking": true,
+          "code_splitting": true,
+          "cache_strategy": "moderate",
+          "bundle_analysis": true
+        },
+        "production": {
+          "optimization_level": "maximum",
+          "source_maps": "hidden",
+          "minification": true,
+          "tree_shaking": true,
+          "code_splitting": true,
+          "cache_strategy": "conservative",
+          "bundle_analysis": true,
+          "compression": ["gzip", "brotli"]
+        }
+      },
+      "cache_settings": {
+        "vite_cache_dir": "node_modules/.vite",
+        "max_cache_age_days": 7,
+        "cache_invalidation_triggers": [
+          "package.json",
+          "package-lock.json",
+          "vite.config.ts",
+          "tsconfig.json"
+        ]
+      },
+      "performance_targets": {
+        "build_time_seconds": {
+          "development": 30,
+          "staging": 120,
+          "production": 300
+        },
+        "bundle_size_mb": {
+          "development": 10,
+          "staging": 5,
+          "production": 3
+        }
+      }
+    },
+    "backend": {
+      "build_profiles": {
+        "development": {
+          "profile": "dev-fast",
+          "optimization_level": 1,
+          "debug_info": true,
+          "incremental": true,
+          "lto": false,
+          "codegen_units": 256
+        },
+        "staging": {
+          "profile": "release",
+          "optimization_level": 3,
+          "debug_info": false,
+          "incremental": false,
+          "lto": "thin",
+          "codegen_units": 16
+        },
+        "production": {
+          "profile": "release",
+          "optimization_level": 3,
+          "debug_info": false,
+          "incremental": false,
+          "lto": "fat",
+          "codegen_units": 1,
+          "strip_symbols": true
+        }
+      },
+      "cache_settings": {
+        "target_dir": "target",
+        "incremental_cache": true,
+        "max_cache_age_days": 14,
+        "cache_invalidation_triggers": [
+          "Cargo.toml",
+          "Cargo.lock",
+          "src/**/*.rs"
+        ]
+      },
+      "performance_targets": {
+        "build_time_seconds": {
+          "development": 60,
+          "staging": 300,
+          "production": 600
+        },
+        "binary_size_mb": {
+          "development": 100,
+          "staging": 50,
+          "production": 30
+        }
+      }
+    },
+    "soroban": {
+      "build_profiles": {
+        "development": {
+          "profile": "dev-fast",
+          "optimization_level": 1,
+          "debug_info": true,
+          "wasm_optimization": false
+        },
+        "staging": {
+          "profile": "release",
+          "optimization_level": "z",
+          "debug_info": false,
+          "wasm_optimization": true
+        },
+        "production": {
+          "profile": "release-size",
+          "optimization_level": "z",
+          "debug_info": false,
+          "wasm_optimization": true,
+          "lto": "fat",
+          "codegen_units": 1
+        }
+      },
+      "cache_settings": {
+        "target_dir": "target",
+        "wasm_cache": true,
+        "max_cache_age_days": 7,
+        "cache_invalidation_triggers": [
+          "Cargo.toml",
+          "soroban/**/Cargo.toml",
+          "soroban/**/src/**/*.rs"
+        ]
+      },
+      "performance_targets": {
+        "build_time_seconds": {
+          "development": 45,
+          "staging": 180,
+          "production": 300
+        },
+        "wasm_size_kb": {
+          "development": 500,
+          "staging": 200,
+          "production": 100
+        }
+      }
+    }
+  },
+  "global_settings": {
+    "parallel_builds": {
+      "enabled": true,
+      "max_jobs": "auto",
+      "component_dependencies": {
+        "frontend": [],
+        "backend": [],
+        "soroban": []
+      }
+    },
+    "cache_management": {
+      "auto_cleanup": true,
+      "cleanup_schedule": "weekly",
+      "size_threshold_gb": 5,
+      "age_threshold_days": 30
+    },
+    "monitoring": {
+      "build_performance": true,
+      "cache_effectiveness": true,
+      "size_tracking": true,
+      "trend_analysis": true,
+      "alerts": {
+        "build_time_regression": 20,
+        "size_increase": 15,
+        "cache_miss_rate": 30
+      }
+    }
+  },
+  "ci_cd_optimizations": {
+    "github_actions": {
+      "cache_strategy": "layered",
+      "cache_keys": {
+        "frontend": "frontend-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}",
+        "backend": "backend-${{ runner.os }}-${{ hashFiles('backend/Cargo.lock') }}",
+        "soroban": "soroban-${{ runner.os }}-${{ hashFiles('soroban/Cargo.lock') }}"
+      },
+      "parallel_jobs": true,
+      "artifact_retention_days": 7,
+      "build_matrix": {
+        "os": ["ubuntu-latest"],
+        "node_version": ["18"],
+        "rust_version": ["1.75"]
+      }
+    },
+    "docker": {
+      "multi_stage_builds": true,
+      "layer_caching": true,
+      "build_cache_from": true,
+      "cache_mount_targets": [
+        "/usr/local/cargo/registry",
+        "/usr/local/cargo/git",
+        "/app/target",
+        "/app/node_modules"
+      ]
+    }
+  },
+  "development_optimizations": {
+    "hot_reload": {
+      "frontend": true,
+      "backend": false,
+      "soroban": false
+    },
+    "incremental_compilation": {
+      "frontend": true,
+      "backend": true,
+      "soroban": true
+    },
+    "watch_mode": {
+      "enabled": true,
+      "debounce_ms": 300,
+      "ignore_patterns": [
+        "node_modules",
+        "target",
+        "dist",
+        "*.log"
+      ]
+    }
+  }
+}

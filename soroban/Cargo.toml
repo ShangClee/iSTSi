@@ -1,0 +1,97 @@
+[workspace]
+resolver = "2"
+members = [
+    "contracts/kyc_registry",
+    "contracts/reserve_manager", 
+    "contracts/istsi_token",
+    "contracts/fungible",
+    "contracts/integration_router",
+    "shared",
+    "client"
+]
+
+[workspace.package]
+authors = ["Bitcoin Custody Team"]
+edition = "2021"
+license = "Apache-2.0"
+version = "1.0.0"
+repository = "https://github.com/your-org/bitcoin-custody"
+description = "Bitcoin custody system with Soroban smart contracts"
+
+[workspace.dependencies]
+soroban-sdk = "22.0.8"
+stellar-tokens = "=0.4.1"
+stellar-access = "=0.4.1"
+stellar-contract-utils = "=0.4.1"
+stellar-macros = "=0.4.1"
+
+# Additional dependencies for testing and utilities
+soroban-cli = "22.0.8"
+stellar-strkey = "0.0.8"
+hex = "0.4"
+sha2 = "0.10"
+rand = "0.8"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_imports = "warn"
+unused_variables = "warn"
+
+[workspace.lints.clippy]
+all = "warn"
+pedantic = "warn"
+nursery = "warn"
+cargo = "warn"
+
+# Development profile for faster builds
+[profile.dev]
+opt-level = 0
+debug = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = "unwind"
+incremental = true
+codegen-units = 256
+
+# Fast development profile
+[profile.dev-fast]
+inherits = "dev"
+opt-level = 1
+debug-assertions = false
+incremental = true
+
+# Profile for optimized WASM builds
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
+
+# Release with debug info for profiling
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+strip = "none"
+
+# Test profile optimizations
+[profile.test]
+opt-level = 1
+debug = true
+debug-assertions = true
+overflow-checks = true
+incremental = true
+
+# Profile for contract size optimization
+[profile.release-size]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+

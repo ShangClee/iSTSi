@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: bitcoin_custody_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bitcoin_custody_test
+      - LOCO_ENV=test
+      - RUST_LOG=debug
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - backend_test_cache:/app/target
+    command: cargo loco start --environment test
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    environment:
+      - NODE_ENV=test
+      - VITE_API_URL=http://backend:8080
+    ports:
+      - "3001:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+  soroban-rpc:
+    image: stellar/quickstart:soroban-dev
+    ports:
+      - "8001:8000"
+    command: --local --enable-soroban-rpc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/soroban/rpc"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/bitcoin_custody_test
+      - FRONTEND_URL=http://frontend:3000
+      - BACKEND_URL=http://backend:8080
+      - SOROBAN_RPC_URL=http://soroban-rpc:8000/soroban/rpc
+    depends_on:
+      postgres:
+        condition: service_healthy
+      soroban-rpc:
+        condition: service_healthy
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+    volumes:
+      - .:/workspace
+      - test_results:/workspace/test-results
+    working_dir: /workspace
+    command: ["./scripts/test.sh", "integration"]
+
+volumes:
+  postgres_test_data:
+  backend_test_cache:
+  test_results:

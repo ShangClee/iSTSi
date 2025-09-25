@@ -1,0 +1,125 @@
+server:
+  port: 8080
+  host: 0.0.0.0
+  ident: bitcoin-custody-backend-staging
+  middlewares:
+    cors:
+      enable: true
+    security:
+      enable: true
+    rate_limit:
+      enable: true
+
+database:
+  uri: ${DATABASE_URL}
+  enable_logging: true
+  auto_migrate: true
+  connect_timeout: 3000
+  idle_timeout: 300
+  min_connections: 2
+  max_connections: 20
+  ssl_mode: prefer
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 7200 # 2 hours in staging
+    issuer: "bitcoin-custody-backend-staging"
+    audience: "bitcoin-custody-frontend-staging"
+  session:
+    secure: true
+    http_only: true
+    same_site: "lax"
+
+soroban:
+  network: "testnet"
+  rpc_url: ${SOROBAN_RPC_URL:-"https://soroban-testnet.stellar.org"}
+  network_passphrase: "Test SDF Network ; September 2015"
+  source_secret: ${SOROBAN_SOURCE_SECRET}
+  contracts:
+    integration_router: ${INTEGRATION_ROUTER_ADDRESS}
+    kyc_registry: ${KYC_REGISTRY_ADDRESS}
+    istsi_token: ${ISTSI_TOKEN_ADDRESS}
+    reserve_manager: ${RESERVE_MANAGER_ADDRESS}
+
+cors:
+  enable: true
+  allow_origins: 
+    - ${FRONTEND_URL:-"https://staging.bitcoin-custody.com"}
+    - "http://localhost:3000"
+  allow_methods: 
+    - "GET"
+    - "POST" 
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allow_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+    - "X-CSRF-Token"
+    - "X-Request-ID"
+  allow_credentials: true
+  max_age: 3600
+
+security:
+  enable_rate_limiting: true
+  enable_ip_blocking: true
+  enable_request_validation: true
+  enable_response_validation: true
+  max_request_size: 2097152 # 2MB for staging
+  blocked_user_agents:
+    - "sqlmap"
+    - "nikto"
+    - "nmap"
+  rate_limits:
+    global: 2000 # requests per minute
+    per_ip: 200   # requests per minute per IP
+    auth: 20      # auth attempts per minute per IP
+
+encryption:
+  algorithm: "AES-256-GCM"
+  key_rotation_days: 30
+  backup_encryption: true
+
+logger:
+  enable: true
+  level: debug
+  format: json
+  output: 
+    - console
+    - file
+  file_path: "/var/log/bitcoin-custody-staging/app.log"
+  max_file_size: "50MB"
+  max_files: 5
+  audit_log: true
+
+backup:
+  enabled: true
+  directory: "/var/backups/bitcoin-custody-staging"
+  retention_days: 14
+  schedule: "0 3 * * *" # Daily at 3 AM
+  encryption: true
+  
+audit:
+  enabled: true
+  retention_days: 90
+  log_all_requests: true
+  log_sensitive_operations: true
+  
+workers:
+  mode: "BackgroundQueue"
+  redis_url: ${REDIS_URL:-"redis://localhost:6379"}
+  max_retries: 3
+  
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  health_check_interval: 60
+  alert_endpoints:
+    - ${ALERT_WEBHOOK_URL}
+
+tls:
+  cert_file: ${TLS_CERT_FILE}
+  key_file: ${TLS_KEY_FILE}
+  min_version: "1.2"

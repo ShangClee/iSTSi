@@ -1,0 +1,108 @@
+{
+  "network": "testnet",
+  "rpc_url": "https://soroban-testnet.stellar.org",
+  "deployer_secret": "DEPLOYER_SECRET_KEY",
+  "deployment_timeout": 300,
+  "confirmation_blocks": 3,
+  "contracts": [
+    {
+      "name": "kyc_registry",
+      "path": "soroban/contracts/kyc_registry",
+      "dependencies": [],
+      "initialization_params": {
+        "admin": "DEPLOYER_ADDRESS"
+      },
+      "required_roles": ["admin"],
+      "health_check_endpoint": null
+    },
+    {
+      "name": "reserve_manager",
+      "path": "soroban/contracts/reserve_manager",
+      "dependencies": [],
+      "initialization_params": {
+        "admin": "DEPLOYER_ADDRESS",
+        "initial_reserve_ratio": "10000"
+      },
+      "required_roles": ["admin"],
+      "health_check_endpoint": null
+    },
+    {
+      "name": "fungible_token",
+      "path": "soroban/contracts/fungible",
+      "dependencies": [],
+      "initialization_params": {
+        "admin": "DEPLOYER_ADDRESS",
+        "name": "Test Fungible Token",
+        "symbol": "TFT",
+        "decimals": "7"
+      },
+      "required_roles": ["admin"],
+      "health_check_endpoint": null
+    },
+    {
+      "name": "istsi_token",
+      "path": "soroban/contracts/istsi_token",
+      "dependencies": ["kyc_registry"],
+      "initialization_params": {
+        "admin": "DEPLOYER_ADDRESS",
+        "kyc_registry": "${kyc_registry}",
+        "name": "iSTSi Token",
+        "symbol": "iSTSi",
+        "decimals": "7"
+      },
+      "required_roles": ["admin"],
+      "health_check_endpoint": null
+    },
+    {
+      "name": "integration_router",
+      "path": "soroban/contracts/integration_router",
+      "dependencies": ["kyc_registry", "reserve_manager", "fungible_token", "istsi_token"],
+      "initialization_params": {
+        "admin": "DEPLOYER_ADDRESS",
+        "kyc_registry": "${kyc_registry}",
+        "istsi_token": "${istsi_token}",
+        "fungible_token": "${fungible_token}",
+        "reserve_manager": "${reserve_manager}"
+      },
+      "required_roles": ["admin"],
+      "health_check_endpoint": null
+    }
+  ],
+  "initialization_sequence": [
+    "kyc_registry",
+    "reserve_manager", 
+    "fungible_token",
+    "istsi_token",
+    "integration_router"
+  ],
+  "verification_checks": [
+    {
+      "name": "KYC Registry Health Check",
+      "contract": "kyc_registry",
+      "function": "get_admin",
+      "expected_result": "DEPLOYER_ADDRESS",
+      "timeout": 30
+    },
+    {
+      "name": "Reserve Manager Health Check",
+      "contract": "reserve_manager",
+      "function": "get_admin",
+      "expected_result": "DEPLOYER_ADDRESS",
+      "timeout": 30
+    },
+    {
+      "name": "Integration Router Health Check",
+      "contract": "integration_router",
+      "function": "get_admin",
+      "expected_result": "DEPLOYER_ADDRESS",
+      "timeout": 30
+    },
+    {
+      "name": "Integration Router Configuration Check",
+      "contract": "integration_router",
+      "function": "is_paused",
+      "expected_result": "false",
+      "timeout": 30
+    }
+  ]
+}

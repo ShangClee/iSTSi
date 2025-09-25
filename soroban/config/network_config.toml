@@ -1,0 +1,56 @@
+# Network Configuration for Soroban Contract Integration
+
+[testnet]
+name = "testnet"
+rpc_url = "https://soroban-testnet.stellar.org"
+network_passphrase = "Test SDF Network ; September 2015"
+min_confirmations = 1
+timeout_seconds = 30
+retry_count = 3
+gas_limit = 1000000
+
+[mainnet]
+name = "mainnet"
+rpc_url = "https://soroban-mainnet.stellar.org"
+network_passphrase = "Public Global Stellar Network ; September 2015"
+min_confirmations = 6
+timeout_seconds = 60
+retry_count = 5
+gas_limit = 2000000
+
+[local]
+name = "local"
+rpc_url = "http://localhost:8000"
+network_passphrase = "Standalone Network ; February 2017"
+min_confirmations = 1
+timeout_seconds = 10
+retry_count = 1
+gas_limit = 500000
+
+# Default configuration values
+[defaults]
+timeout_seconds = 30
+retry_count = 3
+gas_limit = 1000000
+min_confirmations = 3
+
+# Event monitoring configuration
+[event_monitoring]
+batch_size = 100
+poll_interval_seconds = 5
+max_blocks_per_request = 1000
+event_retention_days = 30
+
+# Contract interaction settings
+[contract_interaction]
+max_concurrent_calls = 10
+call_timeout_seconds = 15
+retry_backoff_seconds = 2
+max_retry_attempts = 3
+
+# Security settings
+[security]
+require_auth = true
+validate_signatures = true
+check_contract_versions = true
+enforce_rate_limits = true

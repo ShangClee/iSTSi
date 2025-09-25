@@ -1,0 +1,321 @@
+name: Dependency Security Audit
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/package.json'
+      - 'backend/Cargo.toml'
+      - 'soroban/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'package-lock.json'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'frontend/package.json'
+      - 'backend/Cargo.toml'
+      - 'soroban/Cargo.toml'
+      - '**/Cargo.lock'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  frontend-audit:
+    name: Frontend Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run npm audit
+      run: |
+        npm audit --audit-level=moderate --json > audit-results.json || true
+        
+    - name: Check for vulnerabilities
+      run: |
+        VULN_COUNT=$(cat audit-results.json | jq '.metadata.vulnerabilities.total // 0')
+        echo "Found $VULN_COUNT vulnerabilities"
+        if [ "$VULN_COUNT" -gt 0 ]; then
+          echo "::warning::Found $VULN_COUNT vulnerabilities in frontend dependencies"
+          cat audit-results.json | jq '.vulnerabilities'
+        fi
+        
+    - name: Check for outdated packages
+      run: |
+        npm outdated --json > outdated.json || true
+        OUTDATED_COUNT=$(cat outdated.json | jq 'length // 0')
+        echo "Found $OUTDATED_COUNT outdated packages"
+        if [ "$OUTDATED_COUNT" -gt 0 ]; then
+          echo "::notice::Found $OUTDATED_COUNT outdated packages"
+          cat outdated.json | jq '.'
+        fi
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-audit-results
+        path: |
+          frontend/audit-results.json
+          frontend/outdated.json
+
+  backend-audit:
+    name: Backend Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          backend/target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+        
+    - name: Install cargo-audit
+      run: cargo install cargo-audit --locked
+      
+    - name: Install cargo-outdated
+      run: cargo install cargo-outdated --locked
+      
+    - name: Run cargo audit
+      run: |
+        cargo audit --json > audit-results.json || true
+        
+    - name: Check for vulnerabilities
+      run: |
+        if [ -s audit-results.json ]; then
+          VULN_COUNT=$(cat audit-results.json | jq '.vulnerabilities.count // 0')
+          echo "Found $VULN_COUNT vulnerabilities"
+          if [ "$VULN_COUNT" -gt 0 ]; then
+            echo "::warning::Found $VULN_COUNT vulnerabilities in backend dependencies"
+            cat audit-results.json | jq '.vulnerabilities.list'
+          fi
+        fi
+        
+    - name: Check for outdated packages
+      run: |
+        cargo outdated --format json > outdated.json || true
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-audit-results
+        path: |
+          backend/audit-results.json
+          backend/outdated.json
+
+  soroban-audit:
+    name: Soroban Security Audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./soroban
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        target: wasm32-unknown-unknown
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          soroban/target
+        key: ${{ runner.os }}-soroban-${{ hashFiles('soroban/Cargo.lock') }}
+        
+    - name: Install cargo-audit
+      run: cargo install cargo-audit --locked
+      
+    - name: Install cargo-outdated
+      run: cargo install cargo-outdated --locked
+      
+    - name: Run cargo audit
+      run: |
+        cargo audit --json > audit-results.json || true
+        
+    - name: Check for vulnerabilities
+      run: |
+        if [ -s audit-results.json ]; then
+          VULN_COUNT=$(cat audit-results.json | jq '.vulnerabilities.count // 0')
+          echo "Found $VULN_COUNT vulnerabilities"
+          if [ "$VULN_COUNT" -gt 0 ]; then
+            echo "::warning::Found $VULN_COUNT vulnerabilities in soroban dependencies"
+            cat audit-results.json | jq '.vulnerabilities.list'
+          fi
+        fi
+        
+    - name: Check for outdated packages
+      run: |
+        cargo outdated --format json > outdated.json || true
+        
+    - name: Upload audit results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: soroban-audit-results
+        path: |
+          soroban/audit-results.json
+          soroban/outdated.json
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        
+    - name: Install license checkers
+      run: |
+        npm install -g license-checker
+        cargo install cargo-license --locked
+        
+    - name: Check frontend licenses
+      working-directory: ./frontend
+      run: |
+        npm ci
+        license-checker --json > ../frontend-licenses.json
+        
+    - name: Check backend licenses
+      working-directory: ./backend
+      run: |
+        cargo license --json > ../backend-licenses.json || echo '[]' > ../backend-licenses.json
+        
+    - name: Check soroban licenses
+      working-directory: ./soroban
+      run: |
+        cargo license --json > ../soroban-licenses.json || echo '[]' > ../soroban-licenses.json
+        
+    - name: Upload license results
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-results
+        path: |
+          frontend-licenses.json
+          backend-licenses.json
+          soroban-licenses.json
+
+  generate-report:
+    name: Generate Dependency Report
+    runs-on: ubuntu-latest
+    needs: [frontend-audit, backend-audit, soroban-audit, license-check]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      
+    - name: Generate comprehensive report
+      run: |
+        echo "# Dependency Security Report - $(date)" > dependency-report.md
+        echo "" >> dependency-report.md
+        
+        echo "## Frontend Audit Results" >> dependency-report.md
+        if [ -f frontend-audit-results/audit-results.json ]; then
+          echo "### Vulnerabilities" >> dependency-report.md
+          echo '```json' >> dependency-report.md
+          cat frontend-audit-results/audit-results.json >> dependency-report.md
+          echo '```' >> dependency-report.md
+        fi
+        
+        echo "## Backend Audit Results" >> dependency-report.md
+        if [ -f backend-audit-results/audit-results.json ]; then
+          echo "### Vulnerabilities" >> dependency-report.md
+          echo '```json' >> dependency-report.md
+          cat backend-audit-results/audit-results.json >> dependency-report.md
+          echo '```' >> dependency-report.md
+        fi
+        
+        echo "## Soroban Audit Results" >> dependency-report.md
+        if [ -f soroban-audit-results/audit-results.json ]; then
+          echo "### Vulnerabilities" >> dependency-report.md
+          echo '```json' >> dependency-report.md
+          cat soroban-audit-results/audit-results.json >> dependency-report.md
+          echo '```' >> dependency-report.md
+        fi
+        
+        echo "## License Summary" >> dependency-report.md
+        if [ -f license-results/frontend-licenses.json ]; then
+          echo "### Frontend Licenses" >> dependency-report.md
+          echo "License count: $(cat license-results/frontend-licenses.json | jq 'length')" >> dependency-report.md
+        fi
+        
+    - name: Upload comprehensive report
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-report
+        path: dependency-report.md
+        
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('dependency-report.md')) {
+            const report = fs.readFileSync('dependency-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔍 Dependency Security Report\n\n${report}`
+            });
+          }

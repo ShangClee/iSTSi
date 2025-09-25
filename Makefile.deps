@@ -1,0 +1,156 @@
+# Dependency Management Makefile
+# Provides convenient commands for managing dependencies across all components
+
+.PHONY: help deps-install deps-update deps-audit deps-clean deps-report deps-licenses deps-check
+
+# Default target
+help:
+	@echo "Dependency Management Commands:"
+	@echo "  deps-install    Install all dependencies"
+	@echo "  deps-update     Update all dependencies"
+	@echo "  deps-audit      Run security audit on all components"
+	@echo "  deps-clean      Clean dependency caches and reinstall"
+	@echo "  deps-report     Generate comprehensive dependency report"
+	@echo "  deps-licenses   Check license compliance"
+	@echo "  deps-check      Check for outdated packages"
+	@echo "  deps-optimize   Apply optimized dependency configurations"
+
+# Install all dependencies
+deps-install:
+	@echo "Installing frontend dependencies..."
+	cd frontend && npm install
+	@echo "Installing backend dependencies..."
+	cd backend && cargo build
+	@echo "Installing soroban dependencies..."
+	cd soroban && cargo build
+	@echo "All dependencies installed successfully!"
+
+# Update all dependencies
+deps-update:
+	@echo "Updating frontend dependencies..."
+	cd frontend && npm update
+	@echo "Updating backend dependencies..."
+	cd backend && cargo update
+	@echo "Updating soroban dependencies..."
+	cd soroban && cargo update
+	@echo "All dependencies updated successfully!"
+
+# Run security audit
+deps-audit:
+	@echo "Running dependency security audit..."
+	./scripts/dependency-management.sh audit
+
+# Clean and reinstall dependencies
+deps-clean:
+	@echo "Cleaning dependency caches..."
+	./scripts/dependency-management.sh clean
+
+# Generate dependency report
+deps-report:
+	@echo "Generating dependency report..."
+	./scripts/dependency-management.sh report
+
+# Check license compliance
+deps-licenses:
+	@echo "Checking license compliance..."
+	./scripts/dependency-management.sh licenses
+
+# Check for outdated packages
+deps-check:
+	@echo "Checking for outdated packages..."
+	@echo "Frontend outdated packages:"
+	cd frontend && npm outdated || true
+	@echo "Backend outdated packages:"
+	cd backend && cargo outdated || true
+	@echo "Soroban outdated packages:"
+	cd soroban && cargo outdated || true
+
+# Apply optimized configurations
+deps-optimize:
+	@echo "Applying optimized dependency configurations..."
+	@if [ -f frontend/package.optimized.json ]; then \
+		echo "Backing up current frontend package.json..."; \
+		cp frontend/package.json frontend/package.json.backup; \
+		echo "Applying optimized frontend configuration..."; \
+		cp frontend/package.optimized.json frontend/package.json; \
+	fi
+	@if [ -f backend/Cargo.optimized.toml ]; then \
+		echo "Backing up current backend Cargo.toml..."; \
+		cp backend/Cargo.toml backend/Cargo.toml.backup; \
+		echo "Applying optimized backend configuration..."; \
+		cp backend/Cargo.optimized.toml backend/Cargo.toml; \
+	fi
+	@if [ -f soroban/Cargo.optimized.toml ]; then \
+		echo "Backing up current soroban Cargo.toml..."; \
+		cp soroban/Cargo.toml soroban/Cargo.toml.backup; \
+		echo "Applying optimized soroban configuration..."; \
+		cp soroban/Cargo.optimized.toml soroban/Cargo.toml; \
+	fi
+	@echo "Optimized configurations applied!"
+	@echo "Run 'make deps-install' to install with new configurations"
+
+# Restore original configurations
+deps-restore:
+	@echo "Restoring original dependency configurations..."
+	@if [ -f frontend/package.json.backup ]; then \
+		echo "Restoring frontend package.json..."; \
+		cp frontend/package.json.backup frontend/package.json; \
+	fi
+	@if [ -f backend/Cargo.toml.backup ]; then \
+		echo "Restoring backend Cargo.toml..."; \
+		cp backend/Cargo.toml.backup backend/Cargo.toml; \
+	fi
+	@if [ -f soroban/Cargo.toml.backup ]; then \
+		echo "Restoring soroban Cargo.toml..."; \
+		cp soroban/Cargo.toml.backup soroban/Cargo.toml; \
+	fi
+	@echo "Original configurations restored!"
+
+# Full dependency management workflow
+deps-full-check: deps-audit deps-check deps-licenses deps-report
+	@echo "Full dependency check completed!"
+
+# Install required tools for dependency management
+deps-tools:
+	@echo "Installing dependency management tools..."
+	@command -v npm >/dev/null 2>&1 || { echo "npm is required but not installed. Please install Node.js"; exit 1; }
+	@command -v cargo >/dev/null 2>&1 || { echo "cargo is required but not installed. Please install Rust"; exit 1; }
+	@echo "Installing cargo-audit..."
+	cargo install cargo-audit --locked || true
+	@echo "Installing cargo-outdated..."
+	cargo install cargo-outdated --locked || true
+	@echo "Installing license-checker..."
+	npm install -g license-checker || true
+	@echo "Installing cargo-license..."
+	cargo install cargo-license --locked || true
+	@echo "All dependency management tools installed!"
+
+# Validate dependency configurations
+deps-validate:
+	@echo "Validating dependency configurations..."
+	@echo "Checking frontend package.json..."
+	cd frontend && npm ls --depth=0 >/dev/null 2>&1 && echo "✓ Frontend dependencies valid" || echo "✗ Frontend dependencies invalid"
+	@echo "Checking backend Cargo.toml..."
+	cd backend && cargo check >/dev/null 2>&1 && echo "✓ Backend dependencies valid" || echo "✗ Backend dependencies invalid"
+	@echo "Checking soroban Cargo.toml..."
+	cd soroban && cargo check >/dev/null 2>&1 && echo "✓ Soroban dependencies valid" || echo "✗ Soroban dependencies invalid"
+
+# Emergency security update
+deps-security-update:
+	@echo "Running emergency security updates..."
+	@echo "Updating frontend security vulnerabilities..."
+	cd frontend && npm audit fix --audit-level=moderate || true
+	@echo "Backend security updates require manual review of Cargo.toml"
+	@echo "Soroban security updates require manual review of Cargo.toml"
+	@echo "Please review and test all changes before committing!"
+
+# Show dependency statistics
+deps-stats:
+	@echo "Dependency Statistics:"
+	@echo "====================="
+	@echo "Frontend dependencies:"
+	@cd frontend && npm ls --depth=0 2>/dev/null | grep -c "├──\|└──" || echo "0"
+	@echo "Backend dependencies:"
+	@cd backend && cargo tree --depth=1 2>/dev/null | grep -c "├──\|└──" || echo "0"
+	@echo "Soroban workspace dependencies:"
+	@cd soroban && cargo tree --depth=1 2>/dev/null | grep -c "├──\|└──" || echo "0"

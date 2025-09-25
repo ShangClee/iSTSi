@@ -1,0 +1,101 @@
+# Dependency management and security scanning configuration
+version: 2
+updates:
+  # Frontend dependencies (npm)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bitcoin-custody-team"
+    assignees:
+      - "bitcoin-custody-team"
+    commit-message:
+      prefix: "frontend"
+      include: "scope"
+    groups:
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+      dev-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "@types/*"
+          - "@typescript-eslint/*"
+          - "eslint*"
+          - "vite*"
+          - "typescript"
+      security-updates:
+        dependency-type: "production"
+        update-types:
+          - "version-update:semver-patch"
+          - "version-update:semver-minor"
+
+  # Backend dependencies (Cargo)
+  - package-ecosystem: "cargo"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bitcoin-custody-team"
+    assignees:
+      - "bitcoin-custody-team"
+    commit-message:
+      prefix: "backend"
+      include: "scope"
+    groups:
+      loco-framework:
+        patterns:
+          - "loco-rs"
+          - "sea-orm*"
+          - "migration"
+      soroban-deps:
+        patterns:
+          - "soroban-*"
+          - "stellar-*"
+      security-deps:
+        patterns:
+          - "tokio*"
+          - "serde*"
+          - "reqwest"
+          - "jsonwebtoken"
+          - "bcrypt"
+
+  # Soroban dependencies (Cargo workspace)
+  - package-ecosystem: "cargo"
+    directory: "/soroban"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "bitcoin-custody-team"
+    assignees:
+      - "bitcoin-custody-team"
+    commit-message:
+      prefix: "soroban"
+      include: "scope"
+    groups:
+      soroban-core:
+        patterns:
+          - "soroban-sdk"
+          - "soroban-cli"
+      stellar-ecosystem:
+        patterns:
+          - "stellar-*"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

@@ -1,0 +1,37 @@
+{
+  "endpoints": {
+    "production": {
+      "frontend": "https://bitcoin-custody.com",
+      "backend": "https://api.bitcoin-custody.com",
+      "health_check": "https://api.bitcoin-custody.com/health",
+      "status_check": "https://api.bitcoin-custody.com/api/system/status"
+    },
+    "staging": {
+      "frontend": "https://staging.bitcoin-custody.com",
+      "backend": "https://staging-api.bitcoin-custody.com", 
+      "health_check": "https://staging-api.bitcoin-custody.com/health",
+      "status_check": "https://staging-api.bitcoin-custody.com/api/system/status"
+    }
+  },
+  "monitoring": {
+    "check_interval": 30,
+    "timeout": 10,
+    "retry_count": 3,
+    "alert_threshold": 3,
+    "performance_baseline": {
+      "response_time_ms": 500,
+      "error_rate_percent": 1
+    }
+  },
+  "alerts": {
+    "slack_webhook": "",
+    "email_recipients": [],
+    "pagerduty_key": ""
+  },
+  "metrics": {
+    "collect_response_times": true,
+    "collect_error_rates": true,
+    "collect_availability": true,
+    "retention_hours": 24
+  }
+}

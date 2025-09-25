@@ -1,0 +1,187 @@
+{
+  "network": "testnet",
+  "upgrade_id": "upgrade_v2_20250913",
+  "upgrade_timeout": 1800,
+  "backup_enabled": true,
+  "contracts_to_upgrade": [
+    {
+      "name": "kyc_registry",
+      "current_address": "CURRENT_KYC_ADDRESS",
+      "new_wasm_path": "soroban/contracts/kyc_registry/target/wasm32-unknown-unknown/release/kyc_registry.wasm",
+      "initialization_required": false,
+      "migration_required": true,
+      "dependencies": [],
+      "version": "2.0.0"
+    },
+    {
+      "name": "reserve_manager",
+      "current_address": "CURRENT_RESERVE_ADDRESS",
+      "new_wasm_path": "soroban/contracts/reserve_manager/target/wasm32-unknown-unknown/release/reserve_manager.wasm",
+      "initialization_required": false,
+      "migration_required": true,
+      "dependencies": [],
+      "version": "2.0.0"
+    },
+    {
+      "name": "istsi_token",
+      "current_address": "CURRENT_ISTSI_ADDRESS",
+      "new_wasm_path": "soroban/contracts/istsi_token/target/wasm32-unknown-unknown/release/istsi_token.wasm",
+      "initialization_required": false,
+      "migration_required": true,
+      "dependencies": ["kyc_registry"],
+      "version": "2.0.0"
+    },
+    {
+      "name": "integration_router",
+      "current_address": "CURRENT_ROUTER_ADDRESS",
+      "new_wasm_path": "soroban/contracts/integration_router/target/wasm32-unknown-unknown/release/integration_router.wasm",
+      "initialization_required": false,
+      "migration_required": true,
+      "dependencies": ["kyc_registry", "reserve_manager", "istsi_token"],
+      "version": "2.0.0"
+    }
+  ],
+  "compatibility_checks": [
+    {
+      "name": "KYC Registry ABI Compatibility",
+      "check_type": "AbiCompatibility",
+      "old_contract": "kyc_registry",
+      "new_contract": "kyc_registry",
+      "required_functions": [
+        "initialize",
+        "get_admin",
+        "register_customer",
+        "is_approved",
+        "get_tier"
+      ],
+      "deprecated_functions": []
+    },
+    {
+      "name": "Reserve Manager State Compatibility",
+      "check_type": "StateCompatibility",
+      "old_contract": "reserve_manager",
+      "new_contract": "reserve_manager",
+      "required_functions": [
+        "initialize",
+        "get_admin",
+        "get_ratio",
+        "register_deposit",
+        "process_withdrawal"
+      ],
+      "deprecated_functions": []
+    },
+    {
+      "name": "iSTSi Token Function Signatures",
+      "check_type": "FunctionSignature",
+      "old_contract": "istsi_token",
+      "new_contract": "istsi_token",
+      "required_functions": [
+        "initialize",
+        "name",
+        "symbol",
+        "decimals",
+        "total_supply",
+        "balance",
+        "transfer",
+        "mint",
+        "burn"
+      ],
+      "deprecated_functions": []
+    },
+    {
+      "name": "Integration Router Storage Layout",
+      "check_type": "StorageLayout",
+      "old_contract": "integration_router",
+      "new_contract": "integration_router",
+      "required_functions": [
+        "initialize",
+        "get_config",
+        "is_paused",
+        "get_contract_address",
+        "update_contract_address"
+      ],
+      "deprecated_functions": []
+    }
+  ],
+  "migration_steps": [
+    {
+      "step_id": "migrate_kyc_data",
+      "description": "Migrate KYC registry data to new format",
+      "contract": "kyc_registry",
+      "function": "migrate_data_v2",
+      "parameters": {
+        "version": "2.0.0"
+      },
+      "required": true,
+      "rollback_function": "rollback_migration_v2"
+    },
+    {
+      "step_id": "migrate_reserve_data",
+      "description": "Migrate reserve manager data to new format",
+      "contract": "reserve_manager",
+      "function": "migrate_data_v2",
+      "parameters": {
+        "version": "2.0.0"
+      },
+      "required": true,
+      "rollback_function": "rollback_migration_v2"
+    },
+    {
+      "step_id": "migrate_token_data",
+      "description": "Migrate iSTSi token data to new format",
+      "contract": "istsi_token",
+      "function": "migrate_data_v2",
+      "parameters": {
+        "version": "2.0.0",
+        "kyc_registry": "${kyc_registry}"
+      },
+      "required": true,
+      "rollback_function": "rollback_migration_v2"
+    },
+    {
+      "step_id": "migrate_router_config",
+      "description": "Migrate integration router configuration",
+      "contract": "integration_router",
+      "function": "migrate_config_v2",
+      "parameters": {
+        "version": "2.0.0"
+      },
+      "required": true,
+      "rollback_function": "rollback_config_v2"
+    }
+  ],
+  "rollback_plan": {
+    "enabled": true,
+    "backup_registry_path": "backup_testnet_TIMESTAMP.json",
+    "emergency_contacts": [
+      "admin@istsi.com",
+      "devops@istsi.com"
+    ],
+    "rollback_steps": [
+      {
+        "step_id": "restore_router",
+        "contract": "integration_router",
+        "action": "RestoreAddress",
+        "old_address": "CURRENT_ROUTER_ADDRESS"
+      },
+      {
+        "step_id": "restore_istsi",
+        "contract": "istsi_token",
+        "action": "RestoreAddress",
+        "old_address": "CURRENT_ISTSI_ADDRESS"
+      },
+      {
+        "step_id": "restore_reserve",
+        "contract": "reserve_manager",
+        "action": "RestoreAddress",
+        "old_address": "CURRENT_RESERVE_ADDRESS"
+      },
+      {
+        "step_id": "restore_kyc",
+        "contract": "kyc_registry",
+        "action": "RestoreAddress",
+        "old_address": "CURRENT_KYC_ADDRESS"
+      }
+    ]
+  }
+}

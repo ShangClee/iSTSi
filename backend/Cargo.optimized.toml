@@ -1,0 +1,92 @@
+[package]
+name = "bitcoin-custody-backend"
+version = "0.1.0"
+edition = "2021"
+authors = ["Bitcoin Custody Team"]
+description = "Bitcoin custody system backend with Loco.rs framework"
+license = "Apache-2.0"
+repository = "https://github.com/your-org/bitcoin-custody"
+
+[dependencies]
+# Core framework
+loco-rs = { version = "0.2", features = ["with-db", "testing"] }
+sea-orm = { version = "0.12", features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"] }
+migration = { path = "./migration" }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Authentication & Security
+jsonwebtoken = "9.0"
+bcrypt = "0.15"
+
+# Soroban integration
+soroban-sdk = "22.0.8"
+stellar-strkey = "0.0.8"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# WebSocket
+tokio-tungstenite = "0.20"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Background jobs
+sidekiq = "0.10"
+
+# Math
+rust_decimal = { version = "1.32", features = ["serde"] }
+
+# CLI
+clap = { version = "4.0", features = ["derive"] }
+
+# Encoding
+hex = "0.4"
+base64 = "0.21"
+md5 = "0.7"
+
+# Async traits
+async-trait = "0.1"
+
+[dev-dependencies]
+tower-test = "0.4"
+serial_test = "3.0"
+tokio-test = "0.4"
+
+[features]
+default = []
+testing = ["loco-rs/testing"]
+
+# Optimize for production builds
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+# Development profile with faster compilation
+[profile.dev]
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+
+# Profile for CI builds - balance between speed and optimization
+[profile.ci]
+inherits = "release"
+debug = true
+strip = "none"
+lto = "thin"

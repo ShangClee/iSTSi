@@ -1,0 +1,129 @@
+server:
+  port: 8080
+  host: 0.0.0.0
+  ident: bitcoin-custody-backend-prod
+  middlewares:
+    cors:
+      enable: true
+    security:
+      enable: true
+    rate_limit:
+      enable: true
+
+database:
+  uri: ${DATABASE_URL}
+  enable_logging: false
+  auto_migrate: false
+  connect_timeout: 5000
+  idle_timeout: 300
+  min_connections: 5
+  max_connections: 50
+  ssl_mode: require
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: 3600 # 1 hour in production
+    issuer: "bitcoin-custody-backend"
+    audience: "bitcoin-custody-frontend"
+  session:
+    secure: true
+    http_only: true
+    same_site: "strict"
+
+soroban:
+  network: ${SOROBAN_NETWORK}
+  rpc_url: ${SOROBAN_RPC_URL}
+  network_passphrase: ${SOROBAN_NETWORK_PASSPHRASE}
+  source_secret: ${SOROBAN_SOURCE_SECRET}
+  contracts:
+    integration_router: ${INTEGRATION_ROUTER_ADDRESS}
+    kyc_registry: ${KYC_REGISTRY_ADDRESS}
+    istsi_token: ${ISTSI_TOKEN_ADDRESS}
+    reserve_manager: ${RESERVE_MANAGER_ADDRESS}
+
+cors:
+  enable: true
+  allow_origins: 
+    - ${FRONTEND_URL}
+  allow_methods: 
+    - "GET"
+    - "POST" 
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allow_headers:
+    - "Content-Type"
+    - "Authorization"
+    - "X-Requested-With"
+    - "X-CSRF-Token"
+    - "X-Request-ID"
+  allow_credentials: true
+  max_age: 86400
+
+security:
+  enable_rate_limiting: true
+  enable_ip_blocking: true
+  enable_request_validation: true
+  enable_response_validation: true
+  max_request_size: 1048576 # 1MB
+  blocked_user_agents:
+    - "sqlmap"
+    - "nikto"
+    - "nmap"
+    - "scanner"
+  rate_limits:
+    global: 1000 # requests per minute
+    per_ip: 100   # requests per minute per IP
+    auth: 10      # auth attempts per minute per IP
+
+encryption:
+  algorithm: "AES-256-GCM"
+  key_rotation_days: 90
+  backup_encryption: true
+
+logger:
+  enable: true
+  level: info
+  format: json
+  output: 
+    - console
+    - file
+  file_path: "/var/log/bitcoin-custody/app.log"
+  max_file_size: "100MB"
+  max_files: 10
+  audit_log: true
+
+backup:
+  enabled: true
+  directory: "/var/backups/bitcoin-custody"
+  retention_days: 30
+  schedule: "0 2 * * *" # Daily at 2 AM
+  encryption: true
+  
+audit:
+  enabled: true
+  retention_days: 365
+  log_all_requests: true
+  log_sensitive_operations: true
+  
+workers:
+  mode: "BackgroundQueue"
+  redis_url: ${REDIS_URL}
+  max_retries: 3
+  
+monitoring:
+  enable_metrics: true
+  metrics_port: 9090
+  health_check_interval: 30
+  alert_endpoints:
+    - ${ALERT_WEBHOOK_URL}
+
+tls:
+  cert_file: ${TLS_CERT_FILE}
+  key_file: ${TLS_KEY_FILE}
+  min_version: "1.2"
+  cipher_suites:
+    - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+    - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+    - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"

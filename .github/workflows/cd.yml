@@ -1,0 +1,332 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      component:
+        description: 'Component to deploy'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+        - frontend
+        - backend
+        - soroban
+        - all
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Determine deployment environment
+  setup:
+    name: Setup Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      component: ${{ steps.env.outputs.component }}
+      version: ${{ steps.version.outputs.version }}
+    
+    steps:
+    - name: Determine environment and component
+      id: env
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          echo "component=${{ github.event.inputs.component }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          echo "environment=staging" >> $GITHUB_OUTPUT
+          echo "component=all" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "environment=production" >> $GITHUB_OUTPUT
+          echo "component=all" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Generate version
+      id: version
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        else
+          echo "version=${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
+        fi
+
+  # Build and push Docker images
+  build-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.component == 'all' || needs.setup.outputs.component == 'backend' || needs.setup.outputs.component == 'frontend'
+    
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      matrix:
+        component: [frontend, backend]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.component }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=sha,prefix={{branch}}-
+          type=raw,value=${{ needs.setup.outputs.environment }}-latest
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./${{ matrix.component }}
+        file: ./${{ matrix.component }}/Dockerfile.${{ needs.setup.outputs.environment }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          VERSION=${{ needs.setup.outputs.version }}
+          ENVIRONMENT=${{ needs.setup.outputs.environment }}
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [setup, build-images]
+    if: needs.setup.outputs.environment == 'staging'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup deployment tools
+      run: |
+        # Install deployment dependencies
+        sudo apt-get update
+        sudo apt-get install -y rsync
+    
+    - name: Deploy to staging
+      run: |
+        ./scripts/deploy.sh staging ${{ needs.setup.outputs.component }}
+      env:
+        DEPLOY_HOST: ${{ secrets.STAGING_HOST }}
+        DEPLOY_USER: ${{ secrets.STAGING_USER }}
+        DEPLOY_KEY: ${{ secrets.STAGING_SSH_KEY }}
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        SOROBAN_DEPLOY_ACCOUNT: ${{ secrets.STAGING_SOROBAN_ACCOUNT }}
+    
+    - name: Run post-deployment tests
+      run: |
+        sleep 60  # Wait for deployment to stabilize
+        ./scripts/test.sh integration
+      env:
+        FRONTEND_URL: ${{ secrets.STAGING_FRONTEND_URL }}
+        BACKEND_URL: ${{ secrets.STAGING_BACKEND_URL }}
+    
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          Staging deployment ${{ job.status }}
+          Component: ${{ needs.setup.outputs.component }}
+          Version: ${{ needs.setup.outputs.version }}
+          Commit: ${{ github.sha }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [setup, build-images]
+    if: needs.setup.outputs.environment == 'production'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup deployment tools
+      run: |
+        # Install deployment dependencies
+        sudo apt-get update
+        sudo apt-get install -y rsync
+    
+    - name: Pre-deployment backup
+      run: |
+        # Create backup before production deployment
+        ssh ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} "
+          mkdir -p /opt/backups/$(date +%Y%m%d_%H%M%S)
+          docker-compose exec -T postgres pg_dump -U postgres bitcoin_custody_production > /opt/backups/$(date +%Y%m%d_%H%M%S)/database.sql
+        "
+      env:
+        SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+    
+    - name: Deploy to production
+      run: |
+        ./scripts/deploy.sh production ${{ needs.setup.outputs.component }}
+      env:
+        DEPLOY_HOST: ${{ secrets.PROD_HOST }}
+        DEPLOY_USER: ${{ secrets.PROD_USER }}
+        DEPLOY_KEY: ${{ secrets.PROD_SSH_KEY }}
+        DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        SOROBAN_DEPLOY_ACCOUNT: ${{ secrets.PROD_SOROBAN_ACCOUNT }}
+    
+    - name: Run production health checks
+      run: |
+        sleep 120  # Wait for deployment to stabilize
+        ./scripts/test.sh integration
+      env:
+        FRONTEND_URL: ${{ secrets.PROD_FRONTEND_URL }}
+        BACKEND_URL: ${{ secrets.PROD_BACKEND_URL }}
+    
+    - name: Create GitHub release
+      if: startsWith(github.ref, 'refs/tags/v')
+      uses: softprops/action-gh-release@v1
+      with:
+        generate_release_notes: true
+        files: |
+          build/artifacts/*
+    
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        text: |
+          🚀 Production deployment ${{ job.status }}
+          Component: ${{ needs.setup.outputs.component }}
+          Version: ${{ needs.setup.outputs.version }}
+          Commit: ${{ github.sha }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Deploy Soroban contracts
+  deploy-contracts:
+    name: Deploy Soroban Contracts
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.component == 'all' || needs.setup.outputs.component == 'soroban'
+    environment: ${{ needs.setup.outputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: '1.75'
+        targets: wasm32-unknown-unknown
+    
+    - name: Install Soroban CLI
+      run: |
+        cargo install --locked soroban-cli --features opt
+    
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: soroban -> target
+    
+    - name: Build contracts
+      run: |
+        cd soroban
+        cargo build --target wasm32-unknown-unknown --release
+    
+    - name: Deploy contracts
+      run: |
+        ./scripts/deploy.sh ${{ needs.setup.outputs.environment }} soroban
+      env:
+        SOROBAN_DEPLOY_ACCOUNT: ${{ secrets.SOROBAN_DEPLOY_ACCOUNT }}
+        SOROBAN_DEPLOY_KEY: ${{ secrets.SOROBAN_DEPLOY_KEY }}
+    
+    - name: Update contract addresses
+      run: |
+        # Update contract addresses in backend configuration
+        if [ -f "deployments/contract-addresses-${{ needs.setup.outputs.environment }}-*.json" ]; then
+          latest_addresses=$(ls -t deployments/contract-addresses-${{ needs.setup.outputs.environment }}-*.json | head -n1)
+          echo "Contract addresses updated: $latest_addresses"
+          
+          # Commit updated addresses if this is a production deployment
+          if [[ "${{ needs.setup.outputs.environment }}" == "production" ]]; then
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add deployments/
+            git commit -m "Update production contract addresses [skip ci]" || exit 0
+            git push
+          fi
+        fi
+
+  # Rollback capability
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
+    needs: [setup, deploy-staging, deploy-production]
+    environment: ${{ needs.setup.outputs.environment }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Rollback deployment
+      run: |
+        echo "Rolling back deployment..."
+        # Implement rollback logic here
+        # This could involve:
+        # 1. Reverting to previous Docker images
+        # 2. Restoring database backup
+        # 3. Reverting contract deployments
+        
+        # For now, just notify about the failure
+        echo "Deployment failed, manual intervention required"
+    
+    - name: Notify rollback
+      uses: 8398a7/action-slack@v3
+      with:
+        status: 'failure'
+        channel: '#deployments'
+        text: |
+          🚨 Deployment FAILED - Rollback initiated
+          Environment: ${{ needs.setup.outputs.environment }}
+          Component: ${{ needs.setup.outputs.component }}
+          Version: ${{ needs.setup.outputs.version }}
+          Manual intervention may be required.
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

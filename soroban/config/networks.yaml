@@ -1,0 +1,150 @@
+# Network configuration for Soroban contract deployments
+
+networks:
+  testnet:
+    name: "Soroban Testnet"
+    rpc_url: "https://soroban-testnet.stellar.org"
+    network_passphrase: "Test SDF Network ; September 2015"
+    horizon_url: "https://horizon-testnet.stellar.org"
+    friendbot_url: "https://friendbot.stellar.org"
+    explorer_url: "https://testnet.stellarchain.io"
+    
+    # Contract deployment settings
+    deployment:
+      fee_per_operation: 10000  # stroops
+      timeout: 300  # seconds
+      retry_attempts: 3
+      
+    # KYC Registry settings
+    kyc_registry:
+      tier_limits:
+        tier_1:
+          daily_limit: 100000000    # 1 BTC in satoshis
+          monthly_limit: 1000000000 # 10 BTC in satoshis
+        tier_2:
+          daily_limit: 500000000    # 5 BTC in satoshis
+          monthly_limit: 5000000000 # 50 BTC in satoshis
+        tier_3:
+          daily_limit: 1000000000   # 10 BTC in satoshis
+          monthly_limit: 10000000000 # 100 BTC in satoshis
+      
+    # Reserve Manager settings
+    reserve_manager:
+      reserve_threshold: 9000  # 90% minimum reserve ratio
+      withdrawal_fee: 100000   # 0.001 BTC in satoshis
+      
+    # Token settings
+    tokens:
+      istsi:
+        name: "Testnet iSTSi Token"
+        symbol: "TiSTSi"
+        decimals: 7
+      fungible:
+        name: "Testnet Fungible Token"
+        symbol: "TFT"
+        decimals: 7
+
+  mainnet:
+    name: "Stellar Mainnet"
+    rpc_url: "https://horizon.stellar.org"
+    network_passphrase: "Public Global Stellar Network ; September 2015"
+    horizon_url: "https://horizon.stellar.org"
+    explorer_url: "https://stellarchain.io"
+    
+    # Contract deployment settings
+    deployment:
+      fee_per_operation: 10000  # stroops
+      timeout: 600  # seconds
+      retry_attempts: 5
+      
+    # KYC Registry settings (production values)
+    kyc_registry:
+      tier_limits:
+        tier_1:
+          daily_limit: 100000000    # 1 BTC in satoshis
+          monthly_limit: 1000000000 # 10 BTC in satoshis
+        tier_2:
+          daily_limit: 1000000000   # 10 BTC in satoshis
+          monthly_limit: 10000000000 # 100 BTC in satoshis
+        tier_3:
+          daily_limit: 5000000000   # 50 BTC in satoshis
+          monthly_limit: 50000000000 # 500 BTC in satoshis
+      
+    # Reserve Manager settings (production values)
+    reserve_manager:
+      reserve_threshold: 9800  # 98% minimum reserve ratio
+      withdrawal_fee: 50000    # 0.0005 BTC in satoshis
+      
+    # Token settings
+    tokens:
+      istsi:
+        name: "iSTSi Bitcoin Token"
+        symbol: "iSTSi"
+        decimals: 7
+      fungible:
+        name: "Bitcoin Custody Fungible Token"
+        symbol: "BCFT"
+        decimals: 7
+
+  local:
+    name: "Local Development"
+    rpc_url: "http://localhost:8000"
+    network_passphrase: "Standalone Network ; February 2017"
+    horizon_url: "http://localhost:8000"
+    
+    # Contract deployment settings
+    deployment:
+      fee_per_operation: 100  # stroops
+      timeout: 60  # seconds
+      retry_attempts: 1
+      
+    # KYC Registry settings (development values)
+    kyc_registry:
+      tier_limits:
+        tier_1:
+          daily_limit: 10000000     # 0.1 BTC in satoshis
+          monthly_limit: 100000000  # 1 BTC in satoshis
+        tier_2:
+          daily_limit: 100000000    # 1 BTC in satoshis
+          monthly_limit: 1000000000 # 10 BTC in satoshis
+      
+    # Reserve Manager settings (development values)
+    reserve_manager:
+      reserve_threshold: 8000  # 80% minimum reserve ratio
+      withdrawal_fee: 1000     # 0.00001 BTC in satoshis
+      
+    # Token settings
+    tokens:
+      istsi:
+        name: "Local iSTSi Token"
+        symbol: "LiSTSi"
+        decimals: 7
+      fungible:
+        name: "Local Fungible Token"
+        symbol: "LFT"
+        decimals: 7
+
+# Global deployment settings
+global:
+  # Contract build settings
+  build:
+    optimization_level: "z"  # Size optimization
+    debug_info: false
+    
+  # Security settings
+  security:
+    require_multisig: false  # Set to true for production
+    multisig_threshold: 2
+    admin_rotation_period: 7776000  # 90 days in seconds
+    
+  # Monitoring settings
+  monitoring:
+    enable_events: true
+    log_level: "info"
+    metrics_endpoint: ""
+    
+  # Backup settings
+  backup:
+    enable_automatic: true
+    retention_days: 30
+    storage_location: "backups/"

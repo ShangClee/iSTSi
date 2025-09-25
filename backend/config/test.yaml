@@ -1,0 +1,62 @@
+server:
+  port: 8081
+  host: 0.0.0.0
+  ident: bitcoin-custody-backend-test
+  middlewares:
+    cors:
+      enable: true
+
+database:
+  uri: postgres://postgres:password@localhost:5432/bitcoin_custody_test
+  enable_logging: false
+  auto_migrate: true
+  connect_timeout: 500
+  idle_timeout: 500
+  min_connections: 1
+  max_connections: 5
+
+auth:
+  jwt:
+    secret: "test-secret-key-not-for-production"
+    expiration: 3600 # 1 hour for tests
+
+soroban:
+  network: "testnet"
+  rpc_url: "https://soroban-testnet.stellar.org"
+  network_passphrase: "Test SDF Network ; September 2015"
+  contracts:
+    integration_router: ""
+    kyc_registry: ""
+    istsi_token: ""
+    reserve_manager: ""
+
+cors:
+  enable: true
+  allow_origins: 
+    - "*"
+  allow_methods: 
+    - "GET"
+    - "POST" 
+    - "PUT"
+    - "DELETE"
+    - "OPTIONS"
+  allow_headers:
+    - "Content-Type"
+    - "Authorization"
+
+backup:
+  enabled: false
+  directory: "./test_backups"
+  retention_days: 1
+  
+audit:
+  enabled: true
+  retention_days: 1
+
+logger:
+  enable: true
+  level: debug
+  format: compact
+  
+workers:
+  mode: "ForegroundBlocking"

@@ -1,0 +1,36 @@
+# Test runner container for integration tests
+FROM ubuntu:22.04
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    nodejs \
+    npm \
+    postgresql-client \
+    bc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add wasm32-unknown-unknown
+
+# Install Soroban CLI
+RUN cargo install --locked soroban-cli --features opt
+
+# Install Newman for API testing
+RUN npm install -g newman
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy scripts
+COPY scripts/ ./scripts/
+RUN chmod +x ./scripts/*.sh
+
+# Default command
+CMD ["./scripts/test.sh", "integration"]
