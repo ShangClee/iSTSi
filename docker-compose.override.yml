@@ -1,7 +1,6 @@
 # Docker Compose override for development-specific configurations
 # This file extends docker-compose.yml with development-only settings
-
-version: '3.8'
+# Updated: November 4, 2025 - Removed obsolete version attribute
 
 services:
   # Development-specific backend configuration

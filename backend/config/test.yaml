@@ -10,8 +10,9 @@ database:
   uri: postgres://postgres:password@localhost:5432/bitcoin_custody_test
   enable_logging: false
   auto_migrate: true
-  connect_timeout: 500
-  idle_timeout: 500
+  connect_timeout: 3000
+  acquire_timeout: 10000
+  idle_timeout: 300
   min_connections: 1
   max_connections: 5
 

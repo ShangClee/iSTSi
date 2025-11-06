@@ -1,4 +1,5 @@
-version: '3.8'
+# Docker Compose configuration for Bitcoin Custody Full-Stack Application
+# Updated: November 4, 2025 - Removed obsolete version attribute
 
 services:
   # PostgreSQL Database

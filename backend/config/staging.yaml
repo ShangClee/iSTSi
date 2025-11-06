@@ -14,7 +14,8 @@ database:
   uri: ${DATABASE_URL}
   enable_logging: true
   auto_migrate: true
-  connect_timeout: 3000
+  connect_timeout: 5000
+  acquire_timeout: 30000
   idle_timeout: 300
   min_connections: 2
   max_connections: 20

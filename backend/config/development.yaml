@@ -7,12 +7,13 @@ server:
       enable: true
 
 database:
-  uri: postgres://postgres:password@localhost:5432/bitcoin_custody_dev
+  uri: postgres://postgres:password@postgres:5432/bitcoin_custody_dev
   enable_logging: false
   auto_migrate: true
-  connect_timeout: 500
-  idle_timeout: 500
-  min_connections: 1
+  connect_timeout: 5000
+  acquire_timeout: 30000
+  idle_timeout: 600
+  min_connections: 2
   max_connections: 10
 
 auth:

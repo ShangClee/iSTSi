@@ -58,7 +58,7 @@ check_service_health "soroban-rpc" || exit 1
 
 # Run database migrations
 echo -e "${YELLOW}🔄 Running database migrations...${NC}"
-docker-compose run --rm backend cargo loco db migrate || {
+docker-compose run --rm backend cargo run --bin loco db migrate || {
     echo -e "${RED}❌ Database migration failed${NC}"
     show_logs
     exit 1
